@@ -20,7 +20,7 @@ Apple recently announced its NeuralHash system, a deep perceptual hashing algori
 
 # Setup and Preparation
 
-## Setup Docker Container
+## Option 1 Setup Docker Container
 To build the Docker container (for rootful Docker) run the following script:
 ```bash
 docker build -t hashing_attacks --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) .
@@ -33,14 +33,27 @@ To start the docker container run the following command from the project's root:
 ```bash
 docker run --rm --shm-size 16G --name my_hashing_attacks --gpus '"device=0"' -v $(pwd):/code -it hashing_attacks bash
 ```
+## NEW Option 2 Setup a virtual environment
+Create a virtual environment 
+```bash
+cd Learning-to-Break-Deep-Perceptual-Hashing
+python3 -m venv .hashing_env
+```
+Activate the virtual environment
+```bash
+source .hashing_env/bin/activate
+```
 
-## Extract NeuralHash Model and Convert into PyTorch
+## ONE TIME ONLY Extract NeuralHash Model and Convert into PyTorch
 To extract the NeuralHash model from a recent macOS or iOS build, please follow the conversion guide provided by [AppleNeuralHash2ONNX](https://github.com/AsuharietYgvar/AppleNeuralHash2ONNX). We will not provide any NeuralHash files or models, neither this repo nor by request. After extracting the onnx model, put the file ```model.onnx``` into ```/models/```. Further, put the extracted Core ML file ```neuralhash_128x96_seed1.dat``` into ```/models/coreml_model```.
 
 To convert the onnx model into PyTorch, run the following command after creating folder ```models``` and putting ```model.onnx``` into it. The converted files will be stored at ```models/model.pth```:
 ```bash
 python utils/onnx2pytorch.py
 ```
+## ONE TIME ONLY Download a large dataset of pictures from one of the popular image datasets
+Several options: ImageNette, PhotoshopBattle, Casia, Stanford Dog
+PhotoshopBattle and Casia contain original and modified images in separate folder
 
 
 # Run the Attacks
@@ -53,16 +66,19 @@ General remarks: We provide experimental setup and hyperparameters for each atta
 
 In our first adversarial setting, we investigate the creation of hash collisions. We perturb images so that their hashes match predefined target hashes. 
 
-The first step to perform the attack is to create a surrogate hash database from a data folder. For this, run the following script and replace *DATASET_FOLDER* with a folder containing images:
+The first step to perform the attack is to create a surrogate hash database from a data folder. For this, run the following script and replace *DATASET_FOLDER* with a folder containing images. 
+
 ```bash
 python utils/compute_dataset_hashes.py --source=DATASET_FOLDER
 ```
-The computed hashed will be stored in a file ```hashes.csv``` in the folder DATASET_FOLDER.
+***NEW*** The DATASET_FOLDER can be the "original" folder from above. The computed hashed will be stored in a file ```hashes.csv``` in the folder dataset_hashes.
 
 We now can perform the collision attack using the computed hashes as possible targets. Prepare the images to alter in ```INPUT_FOLDER``` and run
 ```bash
 python adv1_collision_attack.py --source=INPUT_FOLDER --target_hashset=DATASET_FOLDER/hashes.csv
 ```
+***NEW*** The INPUT_FOLDER is the folder of images you want to test. This can be the "photoshop" folder if you are using the PhotoshopBattle dataset. It may also be a collection of images you have collected yourself and they should not be in the DATASET_FOLDER from which surrogate hashes were calculated.
+
 Please note that depending on the number of images and the complexity of the optimization, this attack might run for some time. To store the manipulated images, provide the argument ```--output_folder=OUTPUT_FOLDER``` and provide a link to an (empty) folder. For further parameters, e.g. learning rate and optimizer, you can run ```python adv1_collision_attack.py --help```. Images on which a collision was not possible will not be stated in the corresponding log file.
 
 We performed the experiments in our paper with default parameters on the first 10,000 samples from the [ImageNet](https://image-net.org/download.php) test split and used the [Stanford Dogs](http://vision.stanford.edu/aditya86/ImageNetDogs/) dataset to compute the surrogate hash database. Both datasets overlap in two images, which we then removed from the results to avoid biases.
